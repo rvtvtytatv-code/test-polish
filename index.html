@@ -1,0 +1,1430 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CarSense AI — integracja AI dla serwisów samochodowych</title>
+  <meta name="description" content="CarSense AI analizuje raporty skanera diagnostycznego, zapisuje historię pojazdu według VIN i pomaga diagnostom szybciej znajdować prawdopodobne przyczyny usterek.">
+  <meta property="og:title" content="CarSense AI — integracja AI dla serwisów samochodowych">
+  <meta property="og:description" content="Aplikacja webowa dopasowana do procesów serwisu: analiza raportów przez AI, baza pojazdów, historia według VIN, role pracowników i personalizacja pod markę.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="dashboard.jpeg">
+  <style>
+    :root {
+      --bg: #f3f7fc;
+      --bg-2: #eef4fb;
+      --text: #071329;
+      --muted: #5b6880;
+      --muted-2: #7a879c;
+      --line: #dfe8f4;
+      --white: #ffffff;
+      --navy: #061a3b;
+      --navy-2: #0b2552;
+      --blue: #2368f2;
+      --blue-2: #1d56ce;
+      --cyan: #6bb7ff;
+      --green: #1dbb73;
+      --yellow: #f3b544;
+      --red: #f06161;
+      --shadow: 0 24px 70px rgba(12, 39, 82, .14);
+      --shadow-soft: 0 14px 40px rgba(12, 39, 82, .10);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --max: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; height: auto; }
+
+    .page { overflow: hidden; }
+    .container { width: min(100% - 32px, var(--max)); margin: 0 auto; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(244, 248, 253, .88);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(223, 232, 244, .8);
+    }
+
+    .nav {
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 900;
+      letter-spacing: -.04em;
+      font-size: 20px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #2d77ff, #6dbaff);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 10px 26px rgba(35, 104, 242, .35);
+    }
+
+    .brand-mark svg { width: 19px; height: 19px; color: white; }
+    .brand span:last-child { color: var(--blue); }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      color: #33415b;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .nav-links a:hover { color: var(--blue); }
+    .nav-actions { display: flex; align-items: center; gap: 12px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      border: 0;
+      border-radius: 999px;
+      padding: 15px 21px;
+      font-weight: 850;
+      font-size: 14px;
+      letter-spacing: -.01em;
+      cursor: pointer;
+      transition: transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary {
+      color: #fff;
+      background: linear-gradient(135deg, var(--blue), #5798ff);
+      box-shadow: 0 14px 34px rgba(35, 104, 242, .34);
+    }
+
+    .btn-primary:hover { box-shadow: 0 18px 42px rgba(35, 104, 242, .44); }
+    .btn-secondary {
+      color: var(--navy);
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 24px rgba(12, 39, 82, .08);
+    }
+
+    .btn-dark {
+      color: #fff;
+      background: rgba(255, 255, 255, .12);
+      border: 1px solid rgba(255, 255, 255, .18);
+    }
+
+    .mobile-toggle { display: none; }
+
+    .hero {
+      position: relative;
+      padding: 72px 0 54px;
+      background:
+        radial-gradient(circle at 78% 20%, rgba(35, 104, 242, .20), transparent 30%),
+        radial-gradient(circle at 20% 18%, rgba(100, 187, 255, .20), transparent 26%),
+        linear-gradient(180deg, #f7fbff 0%, #eef5fc 100%);
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(rgba(7,19,41,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(7,19,41,.035) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,.8), transparent 92%);
+      pointer-events: none;
+    }
+
+    .hero-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1.02fr;
+      align-items: center;
+      gap: 42px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 10px 30px rgba(12, 39, 82, .07);
+      color: var(--blue-2);
+      font-weight: 850;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 6px rgba(29, 187, 115, .12);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      font-size: clamp(38px, 5vw, 68px);
+      line-height: .98;
+      letter-spacing: -.065em;
+      margin-bottom: 22px;
+      max-width: 720px;
+    }
+
+    .lead {
+      font-size: clamp(18px, 2vw, 22px);
+      line-height: 1.45;
+      color: #35435c;
+      margin-bottom: 26px;
+      max-width: 680px;
+    }
+
+    .hero-bullets {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 0 0 28px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .hero-bullets li,
+    .check-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      color: #24324b;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .check {
+      flex: 0 0 auto;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: var(--blue);
+      font-size: 12px;
+      margin-top: 1px;
+    }
+
+    .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 15px; }
+    .micro { color: var(--muted); font-size: 14px; max-width: 650px; margin: 0; }
+    .micro strong { color: var(--text); }
+
+    .hero-visual {
+      position: relative;
+      min-height: 550px;
+    }
+
+    .hero-shot {
+      position: absolute;
+      inset: 30px 0 auto auto;
+      width: 100%;
+      border-radius: 28px;
+      padding: 12px;
+      background: rgba(255, 255, 255, .78);
+      border: 1px solid rgba(255, 255, 255, .9);
+      box-shadow: var(--shadow);
+      transform: none;
+    }
+
+    .hero-shot img { border-radius: 20px; box-shadow: inset 0 0 0 1px rgba(7,19,41,.08); }
+    .floating-card {
+      position: absolute;
+      left: -22px;
+      bottom: 44px;
+      width: 312px;
+      padding: 18px;
+      border-radius: 22px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .floating-card strong { display: block; font-size: 15px; margin-bottom: 7px; }
+    .floating-card p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 34px;
+    }
+
+    .metric {
+      padding: 20px;
+      border-radius: 20px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 12px 32px rgba(12, 39, 82, .07);
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 26px;
+      letter-spacing: -.04em;
+      color: var(--navy);
+      margin-bottom: 3px;
+    }
+
+    .metric span { color: var(--muted); font-size: 13px; font-weight: 700; }
+
+    section { padding: 92px 0; }
+    .section-head { max-width: 810px; margin-bottom: 38px; }
+    .section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
+    .kicker {
+      color: var(--blue);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: clamp(31px, 4.2vw, 52px);
+      line-height: 1.05;
+      letter-spacing: -.055em;
+      margin-bottom: 16px;
+    }
+
+    .section-subtitle {
+      color: #44516a;
+      font-size: clamp(17px, 1.8vw, 20px);
+      line-height: 1.55;
+      margin-bottom: 0;
+    }
+
+    .pain { background: #fff; }
+    .pain-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .pain-card,
+    .solution-card,
+    .feature-card,
+    .faq-item,
+    .trust-card,
+    .video-card,
+    .custom-card {
+      border-radius: var(--radius-lg);
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 12px 36px rgba(12, 39, 82, .06);
+    }
+
+    .pain-card { padding: 26px; }
+    .pain-card.dark {
+      color: #fff;
+      background: linear-gradient(145deg, #061a3b, #102c5f);
+      border-color: rgba(255,255,255,.10);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pain-card.dark::after {
+      content: "";
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      right: -100px;
+      top: -100px;
+      background: radial-gradient(circle, rgba(77,145,255,.48), transparent 66%);
+    }
+
+    .pain-card h3, .solution-card h3, .feature-card h3, .trust-card h3, .custom-card h3 {
+      font-size: 22px;
+      line-height: 1.18;
+      letter-spacing: -.03em;
+      margin-bottom: 12px;
+    }
+
+    .pain-card p, .solution-card p, .feature-card p, .trust-card p, .custom-card p {
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    .pain-card.dark p { color: rgba(255,255,255,.76); }
+
+    .list {
+      display: grid;
+      gap: 13px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      color: #27344d;
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .pain-card.dark .list li { color: rgba(255,255,255,.88); }
+
+    .x {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      background: rgba(240, 97, 97, .12);
+      color: var(--red);
+      font-weight: 900;
+      font-size: 14px;
+      margin-top: 1px;
+    }
+
+    .blue-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      background: rgba(35, 104, 242, .12);
+      color: var(--blue);
+      font-weight: 900;
+      font-size: 13px;
+      margin-top: 1px;
+    }
+
+    .solution { background: var(--bg); }
+    .solution-grid {
+      display: grid;
+      grid-template-columns: .85fr 1.15fr;
+      gap: 28px;
+      align-items: center;
+    }
+
+    .solution-card { padding: 30px; }
+    .image-stack {
+      position: relative;
+      min-height: 600px;
+    }
+
+    .stack-img {
+      position: absolute;
+      border-radius: 24px;
+      padding: 10px;
+      background: rgba(255,255,255,.88);
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(255,255,255,.9);
+    }
+
+    .stack-img img { border-radius: 17px; }
+    .stack-img.one { width: 84%; right: 0; top: 0; z-index: 1; }
+    .stack-img.two { width: 66%; left: 0; bottom: 0; z-index: 2; }
+
+    .steps {
+      background: linear-gradient(180deg, #fff, #f8fbff);
+    }
+
+    .step-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      counter-reset: step;
+    }
+
+    .step {
+      position: relative;
+      min-height: 210px;
+      padding: 24px;
+      border-radius: var(--radius-lg);
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 10px 32px rgba(12, 39, 82, .06);
+      counter-increment: step;
+    }
+
+    .step::before {
+      content: counter(step);
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, var(--blue), #75b9ff);
+      color: #fff;
+      font-weight: 900;
+      margin-bottom: 18px;
+    }
+
+    .step h3 { font-size: 18px; letter-spacing: -.02em; margin-bottom: 9px; }
+    .step p { color: var(--muted); font-size: 14px; margin: 0; }
+
+    .interface { background: var(--navy); color: #fff; }
+    .interface .section-subtitle { color: rgba(255,255,255,.75); }
+    .interface .kicker { color: #83bdff; }
+
+    .screen-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 18px;
+    }
+
+    .screen-card {
+      grid-column: span 2;
+      border-radius: 24px;
+      padding: 12px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 26px 60px rgba(0,0,0,.22);
+      transition: transform .25s ease, background .25s ease;
+      min-height: 100%;
+    }
+
+    .screen-card:hover { transform: translateY(-5px); background: rgba(255,255,255,.105); }
+    .screen-card.large { grid-column: span 3; }
+    .screen-image {
+      overflow: hidden;
+      border-radius: 18px;
+      background: rgba(255,255,255,.06);
+      aspect-ratio: 16 / 8;
+      border: 1px solid rgba(255,255,255,.10);
+    }
+
+    .screen-image img { width: 100%; height: 100%; object-fit: cover; object-position: left top; }
+    .screen-body { padding: 18px 10px 8px; }
+    .screen-body h3 { margin-bottom: 8px; font-size: 19px; letter-spacing: -.03em; }
+    .screen-body p { color: rgba(255,255,255,.72); font-size: 14px; margin-bottom: 12px; }
+    .owner-benefit {
+      padding: 11px 12px;
+      border-radius: 14px;
+      background: rgba(35,104,242,.18);
+      color: rgba(255,255,255,.88);
+      font-size: 13px;
+      font-weight: 750;
+      border: 1px solid rgba(77,145,255,.20);
+    }
+
+    .china { background: #fff; }
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      align-items: center;
+    }
+
+    .source-map {
+      padding: 28px;
+      border-radius: var(--radius-xl);
+      background: linear-gradient(145deg, #071a3a, #0f2b5e);
+      color: #fff;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .source-map::after {
+      content: "";
+      position: absolute;
+      width: 320px;
+      height: 320px;
+      right: -130px;
+      bottom: -130px;
+      background: radial-gradient(circle, rgba(35,104,242,.55), transparent 67%);
+    }
+
+    .source-row {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 12px;
+    }
+
+    .source-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.09);
+      border: 1px solid rgba(255,255,255,.13);
+    }
+
+    .source-pill span { color: rgba(255,255,255,.78); font-size: 14px; }
+    .source-pill strong { font-size: 16px; }
+
+    .results { background: var(--bg); }
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .result-card {
+      padding: 24px;
+      border-radius: var(--radius-lg);
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 12px 34px rgba(12, 39, 82, .06);
+    }
+
+    .result-card strong {
+      display: block;
+      font-size: 34px;
+      line-height: 1;
+      letter-spacing: -.05em;
+      margin-bottom: 12px;
+      color: var(--blue);
+    }
+
+    .result-card h3 { font-size: 18px; letter-spacing: -.025em; margin-bottom: 8px; }
+    .result-card p { color: var(--muted); font-size: 14px; margin: 0; }
+    .note {
+      padding: 16px 18px;
+      border-radius: 16px;
+      background: #fff;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    .implementation { background: #fff; }
+    .custom-grid {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .custom-card { padding: 30px; }
+    .custom-card.highlight {
+      background: linear-gradient(145deg, #061a3b, #13336d);
+      color: #fff;
+      border-color: rgba(255,255,255,.12);
+    }
+
+    .custom-card.highlight p, .custom-card.highlight .list li { color: rgba(255,255,255,.78); }
+    .tag-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+    .tag {
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(35,104,242,.10);
+      color: var(--blue-2);
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .custom-card.highlight .tag { background: rgba(255,255,255,.11); color: #fff; }
+
+    .not-replace {
+      background: linear-gradient(180deg, #eef5fc, #fff);
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .compare-card {
+      padding: 26px;
+      border-radius: var(--radius-lg);
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 12px 34px rgba(12, 39, 82, .06);
+    }
+
+    .compare-card h3 { font-size: 22px; letter-spacing: -.03em; }
+    .compare-card p { color: var(--muted); margin: 0; }
+
+    .company { background: var(--navy); color: #fff; }
+    .company .section-subtitle { color: rgba(255,255,255,.75); }
+    .company .kicker { color: #83bdff; }
+    .trust-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+
+    .trust-card {
+      background: rgba(255,255,255,.08);
+      border-color: rgba(255,255,255,.12);
+      padding: 24px;
+      box-shadow: none;
+    }
+
+    .trust-card h3 { color: #fff; }
+    .trust-card p { color: rgba(255,255,255,.70); margin-bottom: 0; }
+
+    .video { background: #fff; }
+    .video-card {
+      display: grid;
+      grid-template-columns: 1.35fr .65fr;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    .video-placeholder {
+      min-height: 430px;
+      display: block;
+      background: #061a3b;
+      color: #fff;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .video-placeholder video {
+      width: 100%;
+      height: 100%;
+      min-height: 430px;
+      display: block;
+      object-fit: cover;
+      background: #061a3b;
+    }
+
+    .play {
+      display: grid;
+      place-items: center;
+      width: 92px;
+      height: 92px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.16);
+      border: 1px solid rgba(255,255,255,.28);
+      backdrop-filter: blur(10px);
+      margin: 0 auto 18px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.25);
+    }
+
+    .play svg { width: 34px; height: 34px; margin-left: 5px; }
+    .video-placeholder h3 { font-size: 30px; letter-spacing: -.04em; text-align: center; margin-bottom: 8px; }
+    .video-placeholder p { color: rgba(255,255,255,.75); text-align: center; margin: 0; }
+    .video-side { padding: 30px; background: #fff; }
+    .video-side h3 { font-size: 24px; letter-spacing: -.035em; margin-bottom: 12px; }
+    .video-side p { color: var(--muted); }
+
+    .faq { background: var(--bg); }
+    .faq-list { display: grid; gap: 12px; max-width: 930px; margin: 0 auto; }
+    .faq-item { overflow: hidden; }
+    .faq-q {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 22px 24px;
+      background: transparent;
+      border: 0;
+      color: var(--text);
+      font-size: 17px;
+      font-weight: 850;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .faq-q span:last-child {
+      flex: 0 0 auto;
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(35,104,242,.10);
+      color: var(--blue);
+      transition: transform .2s ease;
+    }
+
+    .faq-item.active .faq-q span:last-child { transform: rotate(45deg); }
+    .faq-a {
+      display: none;
+      padding: 0 24px 22px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .faq-item.active .faq-a { display: block; }
+
+    .final-cta {
+      padding: 96px 0;
+      background:
+        radial-gradient(circle at 80% 20%, rgba(35, 104, 242, .35), transparent 33%),
+        linear-gradient(145deg, #061a3b, #112e64);
+      color: #fff;
+    }
+
+    .final-box {
+      display: grid;
+      grid-template-columns: 1fr .88fr;
+      gap: 36px;
+      align-items: center;
+    }
+
+    .final-cta h2 { max-width: 820px; }
+    .final-cta .section-subtitle { color: rgba(255,255,255,.76); }
+    .final-cta .micro { color: rgba(255,255,255,.68); }
+    .final-screens {
+      display: grid;
+      gap: 14px;
+      transform: rotate(1deg);
+    }
+    
+    .final-cta .list li {
+    color: #fff;
+   }
+     
+    .final-screens img {
+      border-radius: 18px;
+      border: 8px solid rgba(255,255,255,.12);
+      box-shadow: 0 22px 56px rgba(0,0,0,.28);
+    }
+
+    .footer {
+      padding: 28px 0;
+      background: #04132d;
+      color: rgba(255,255,255,.62);
+      font-size: 14px;
+    }
+
+    .footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .footer a { color: #fff; font-weight: 800; }
+
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+
+    .lightbox-enabled {
+      cursor: zoom-in;
+    }
+
+    .image-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      background: rgba(4, 19, 45, .86);
+      backdrop-filter: blur(12px);
+    }
+
+    .image-lightbox.active { display: flex; }
+
+    .image-lightbox__img {
+      max-width: min(100%, 1180px);
+      max-height: calc(100vh - 96px);
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 18px;
+      box-shadow: 0 30px 90px rgba(0,0,0,.38);
+      background: #fff;
+    }
+
+    .image-lightbox__close {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      width: 46px;
+      height: 46px;
+      border: 0;
+      border-radius: 50%;
+      background: rgba(255,255,255,.14);
+      color: #fff;
+      font-size: 32px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .image-lightbox__close:hover { background: rgba(255,255,255,.22); }
+
+    @media (max-width: 1080px) {
+      .nav-links { display: none; }
+      .mobile-toggle { display: inline-flex; }
+      .hero-grid, .solution-grid, .split, .custom-grid, .final-box { grid-template-columns: 1fr; }
+      .hero-visual { min-height: 430px; }
+      .hero-shot { position: relative; inset: auto; }
+      .floating-card { right: 16px; left: auto; bottom: 4px; }
+      .metrics-row, .result-grid, .trust-grid { grid-template-columns: repeat(2, 1fr); }
+      .step-grid { grid-template-columns: repeat(2, 1fr); }
+      .screen-card, .screen-card.large { grid-column: span 3; }
+      .video-card { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .container { width: min(100% - 24px, var(--max)); }
+      .nav { min-height: 68px; }
+      .nav-actions .btn-secondary { display: none; }
+      .hero { padding: 46px 0 38px; }
+      .hero-grid { gap: 28px; }
+      .hero-bullets { grid-template-columns: 1fr; }
+      .hero-visual { min-height: auto; }
+      .floating-card { position: static; width: 100%; margin-top: 12px; }
+      .metrics-row, .pain-grid, .result-grid, .trust-grid, .compare, .step-grid { grid-template-columns: 1fr; }
+      section { padding: 68px 0; }
+      .screen-grid { grid-template-columns: 1fr; }
+      .screen-card, .screen-card.large { grid-column: auto; }
+      .screen-image { aspect-ratio: 16 / 9; }
+      .video-placeholder { min-height: 310px; }
+      .final-screens { transform: none; }
+      .btn { width: 100%; padding-left: 18px; padding-right: 18px; }
+      h1 { letter-spacing: -.055em; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <div class="container nav">
+      <a href="#top" class="brand" aria-label="CarSense AI">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v18M3 12h18M6.2 6.2l11.6 11.6M17.8 6.2 6.2 17.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <span>CarSense <span>AI</span></span>
+      </a>
+      <nav class="nav-links" aria-label="Menu główne">
+        <a href="#problem">Problem</a>
+        <a href="#solution">Rozwiązanie</a>
+        <a href="#screens">Interfejs</a>
+        <a href="#implementation">Wdrożenie</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="btn btn-secondary js-stop-site-media" href="#video">Prezentacja wideo</a>
+        <a class="btn btn-primary" href="https://t.me/STAK_IT_DEV" target="_blank" rel="noopener">Prezentacja w Telegramie</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy reveal">
+          <div class="eyebrow"><span class="dot"></span> Integracja AI dopasowana do procesów serwisu</div>
+          <h1>Mniej czasu na szukanie informacji, więcej diagnostyk w ciągu dnia pracy</h1>
+          <p class="lead">CarSense AI analizuje raporty skanera diagnostycznego, pokazuje prawdopodobne przyczyny usterek, zapisuje historię pojazdu według VIN i działa jako wewnętrzne oprogramowanie Twojego serwisu.</p>
+          <ul class="hero-bullets">
+            <li><span class="check">✓</span>Analiza AI raportów skanera w PDF/TXT</li>
+            <li><span class="check">✓</span>Karta pojazdu i historia według VIN</li>
+            <li><span class="check">✓</span>Czat AI dla konkretnego pojazdu i bazy serwisu</li>
+            <li><span class="check">✓</span>Personalizacja pod Twoją markę i procesy</li>
+          </ul>
+          <div class="hero-cta">
+            <a class="btn btn-primary" href="https://t.me/STAK_IT_DEV" target="_blank" rel="noopener">Zamówić prezentację w Telegramie</a>
+            <a class="btn btn-secondary" href="#video">Obejrzeć prezentację wideo</a>
+          </div>
+          <p class="micro"><strong>Najpierw prezentacja i omówienie zadań.</strong> Następnie wyliczymy koszt wdrożenia dla Twojego serwisu. Pracujemy oficjalnie, na podstawie umowy.</p>
+        </div>
+        <div class="hero-visual reveal">
+          <div class="hero-shot">
+            <img src="dashboard.jpeg" alt="Panel główny CarSense AI z wgrywaniem raportu, statystyką i czatem AI">
+          </div>
+          <div class="floating-card">
+            <strong>Można wdrożyć pod Twoją marką</strong>
+            <p>Nazwa, role pracowników, scenariusze pracy i dodatkowe funkcje są omawiane podczas konsultacji.</p>
+          </div>
+        </div>
+      </div>
+      <div class="container metrics-row reveal">
+        <div class="metric"><strong>do 90%</strong><span>mniej ręcznego wyszukiwania w wybranych scenariuszach</span></div>
+        <div class="metric"><strong>PDF/TXT</strong><span>obsługiwane formaty raportów</span></div>
+        <div class="metric"><strong>VIN</strong><span>historia pojazdu w jednej karcie</span></div>
+        <div class="metric"><strong>do 7 dni</strong><span>standardowe uruchomienie po uzgodnieniu zadań</span></div>
+      </div>
+    </section>
+
+    <section id="problem" class="pain">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="kicker">Problem</div>
+          <h2>Diagnostyka często zwalnia nie przez ludzi, ale przez chaos w procesie</h2>
+          <p class="section-subtitle">Raporty skanera, kody błędów, fora, dokumentacja, korespondencja, stare pliki i wiedza diagnosty często są rozproszone.</p>
+        </div>
+        <div class="pain-grid">
+          <div class="pain-card reveal">
+            <h3>Co widzi właściciel serwisu</h3>
+            <p>Samochód dłużej pozostaje w pracy, diagnosta szuka informacji, klient czeka na wyjaśnienia, a serwis obsługuje mniej pojazdów dziennie.</p>
+            <ul class="list">
+              <li><span class="x">×</span>Specjalista traci czas na ręczne szukanie opisów i rozwiązań.</li>
+              <li><span class="x">×</span>Rzadkie błędy trudno szybko przeanalizować bez dodatkowych źródeł.</li>
+              <li><span class="x">×</span>W przypadku nowych i chińskich modeli często brakuje uporządkowanych danych technicznych.</li>
+              <li><span class="x">×</span>Powtórna wizyta często zaczyna się prawie od zera.</li>
+            </ul>
+          </div>
+          <div class="pain-card dark reveal">
+            <h3>Gdzie traci się przepustowość</h3>
+            <p>Gdy diagnostyka opiera się na ręcznym wyszukiwaniu i doświadczeniu jednego mocnego specjalisty, biznes staje się wrażliwy.</p>
+            <ul class="list">
+              <li><span class="blue-dot">1</span>Historia pojazdu gubi się między wizytami.</li>
+              <li><span class="blue-dot">2</span>Serwis zależy od konkretnego diagnosty.</li>
+              <li><span class="blue-dot">3</span>Pojazd dłużej pozostaje w pracy.</li>
+              <li><span class="blue-dot">4</span>Trudniej wyjaśnić klientowi, dlaczego potrzebne są konkretne prace.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="solution" class="solution">
+      <div class="container solution-grid">
+        <div class="solution-card reveal">
+          <div class="kicker">Rozwiązanie</div>
+          <h2>CarSense AI zamienia raport skanera w czytelny plan diagnostyki</h2>
+          <p>Diagnosta wgrywa PDF lub TXT, system analizuje dane, tworzy kartę pojazdu i zapisuje wynik w historii według VIN.</p>
+          <ul class="list">
+            <li><span class="check">✓</span>Porządkuje błędy, kody, parametry i zależności.</li>
+            <li><span class="check">✓</span>Pokazuje prawdopodobne przyczyny usterek.</li>
+            <li><span class="check">✓</span>Podpowiada, co należy sprawdzić.</li>
+            <li><span class="check">✓</span>Pozwala zadawać dodatkowe pytania czatowi AI.</li>
+            <li><span class="check">✓</span>Tworzy cyfrową pamięć serwisu według VIN.</li>
+          </ul>
+          <div style="height:22px"></div>
+          <a class="btn btn-primary" href="https://t.me/STAK_IT_DEV" target="_blank" rel="noopener">Zobaczyć działanie na przykładzie</a>
+        </div>
+        <div class="image-stack reveal" aria-label="Zrzuty ekranów procesu CarSense AI">
+          <div class="stack-img one"><img src="new-diagnostic.jpeg" alt="Ekran wgrywania raportu PDF lub TXT w CarSense AI"></div>
+          <div class="stack-img two"><img src="car-card.jpeg" alt="Karta pojazdu z analizą AI i historią diagnostyk"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="steps">
+      <div class="container">
+        <div class="section-head center reveal">
+          <div class="kicker">Scenariusz pracy</div>
+          <h2>Od raportu skanera do historii pojazdu w bazie serwisu</h2>
+          <p class="section-subtitle">CarSense AI wpisuje się w zwykły proces diagnostyki i pomaga nie tracić danych po każdej wizycie.</p>
+        </div>
+        <div class="step-grid">
+          <div class="step reveal"><h3>Raport ze skanera</h3><p>Diagnosta otrzymuje raport diagnostyczny w roboczym formacie.</p></div>
+          <div class="step reveal"><h3>Wgranie PDF/TXT</h3><p>Plik jest wgrywany ręcznie albo trafia z ustawionego źródła.</p></div>
+          <div class="step reveal"><h3>Karta według VIN</h3><p>System tworzy nowy pojazd albo znajduje istniejący w bazie.</p></div>
+          <div class="step reveal"><h3>Analiza AI</h3><p>Błędy, parametry i zależności są porządkowane w czytelny raport.</p></div>
+          <div class="step reveal"><h3>Przyczyny i ryzyka</h3><p>Diagnosta widzi prawdopodobne przyczyny, elementy do sprawdzenia i ryzyka.</p></div>
+          <div class="step reveal"><h3>Historia jest zapisywana</h3><p>Wynik zostaje w karcie pojazdu i jest dostępny przy kolejnej wizycie.</p></div>
+          <div class="step reveal"><h3>Czat AI dla pojazdu</h3><p>Można zadawać doprecyzowujące pytania o konkretny błąd lub układ.</p></div>
+          <div class="step reveal"><h3>Więcej porządku</h3><p>Serwis otrzymuje jednolitą bazę diagnostyk zamiast rozproszonych plików.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screens" class="interface">
+      <div class="container">
+        <div class="section-head center reveal">
+          <div class="kicker">Interfejs</div>
+          <h2>Jak CarSense AI wygląda w pracy</h2>
+          <p class="section-subtitle">Aplikacja webowa pokazuje cały proces: od wgrania raportu po analizę AI, kartę pojazdu, bazę serwisu i zarządzanie pracownikami.</p>
+        </div>
+        <div class="screen-grid">
+          <article class="screen-card large reveal">
+            <div class="screen-image"><img src="dashboard.jpeg" alt="Panel główny CarSense AI"></div>
+            <div class="screen-body"><h3>Panel główny</h3><p>Główny ekran zarządzania diagnostyką: wgrywanie raportu, statystyki, ostatnie pojazdy i ogólny czat AI po bazie serwisu.</p><div class="owner-benefit">Korzyść dla właściciela: widać ogólny obraz pojazdów, analiz i statusów.</div></div>
+          </article>
+          <article class="screen-card large reveal">
+            <div class="screen-image"><img src="new-diagnostic.jpeg" alt="Nowa diagnostyka CarSense AI"></div>
+            <div class="screen-body"><h3>Nowa diagnostyka</h3><p>Diagnosta wgrywa PDF lub TXT. System przetwarza raport, tworzy lub aktualizuje pojazd i uruchamia analizę AI.</p><div class="owner-benefit">Korzyść dla właściciela: mniej ręcznego przenoszenia danych i szybszy start analizy.</div></div>
+          </article>
+          <article class="screen-card reveal">
+            <div class="screen-image"><img src="garage.jpeg" alt="Garaż pojazdów CarSense AI"></div>
+            <div class="screen-body"><h3>Garaż</h3><p>Baza pojazdów serwisu: VIN, marka, model, liczba diagnostyk, data ostatniej wizyty, diagnosta i status.</p><div class="owner-benefit">Korzyść dla właściciela: historia pojazdów nie ginie.</div></div>
+          </article>
+          <article class="screen-card reveal">
+            <div class="screen-image"><img src="car-card.jpeg" alt="Karta pojazdu CarSense AI"></div>
+            <div class="screen-body"><h3>Karta pojazdu</h3><p>VIN, dane pojazdu, ostatnia analiza AI, historia diagnostyk i lista błędów w jednym miejscu.</p><div class="owner-benefit">Korzyść dla właściciela: kolejne wizyty są analizowane szybciej.</div></div>
+          </article>
+          <article class="screen-card reveal">
+            <div class="screen-image"><img src="errors-chat.jpeg" alt="Czat AI po pojeździe CarSense AI"></div>
+            <div class="screen-body"><h3>Czat AI po pojeździe</h3><p>Diagnosta zadaje pytania o błąd, układ pojazdu albo plan sprawdzenia.</p><div class="owner-benefit">Korzyść dla właściciela: specjalista ma wsparcie w trudnych przypadkach.</div></div>
+          </article>
+          <article class="screen-card reveal">
+            <div class="screen-image"><img src="admin.jpeg" alt="Panel administratora CarSense AI"></div>
+            <div class="screen-body"><h3>Panel administratora</h3><p>Tworzenie pracowników, zarządzanie rolami i dostępami dla kilku specjalistów.</p><div class="owner-benefit">Korzyść dla właściciela: system jest zarządzany, a nie działa na jednym wspólnym koncie.</div></div>
+          </article>
+          <article class="screen-card reveal">
+            <div class="screen-image"><img src="mail-sources.jpeg" alt="Źródła e-mail CarSense AI"></div>
+            <div class="screen-body"><h3>Źródła e-mail</h3><p>Można podłączyć dozwolone skrzynki e-mail i wpisać system w dotychczasowy proces pracy.</p><div class="owner-benefit">Korzyść dla właściciela: integracja nie zaburza obecnego sposobu pracy.</div></div>
+          </article>
+          <article class="screen-card reveal">
+            <div class="screen-image"><img src="profile.jpeg" alt="Profil użytkownika CarSense AI"></div>
+            <div class="screen-body"><h3>Profil</h3><p>Podstawowy ekran użytkownika z rolą i danymi konta.</p><div class="owner-benefit">Korzyść dla właściciela: produkt wygląda jak gotowe narzędzie wewnętrzne.</div></div>
+          </article>
+        </div>
+        <div style="height:34px"></div>
+        <div class="hero-cta" style="justify-content:center">
+          <a class="btn btn-primary" href="https://t.me/STAK_IT_DEV" target="_blank" rel="noopener">Zamówić prezentację w Telegramie</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="china">
+      <div class="container split">
+        <div class="reveal">
+          <div class="kicker">Chińskie i nowe samochody</div>
+          <h2>Gdy brakuje uporządkowanych danych, diagnostyka staje się wolniejsza</h2>
+          <p class="section-subtitle">Dla wielu nowych i chińskich modeli trudniej szybko znaleźć dokładne dane. Diagnosta musi sprawdzać różne źródła, a błędy mogą być powiązane z kilkoma układami jednocześnie.</p>
+          <div style="height:24px"></div>
+          <ul class="list">
+            <li><span class="check">✓</span>CarSense AI pomaga pracować z błędami, dla których brakuje uporządkowanych danych technicznych.</li>
+            <li><span class="check">✓</span>Rozszerza wyszukiwanie o anglojęzyczne i chińskojęzyczne źródła profesjonalne.</li>
+            <li><span class="check">✓</span>Pomaga szybciej zebrać kontekst i zrozumieć, co sprawdzić w pierwszej kolejności.</li>
+            <li><span class="check">✓</span>Nie obiecuje absolutnej dokładności: końcową weryfikację wykonuje diagnosta.</li>
+          </ul>
+        </div>
+        <div class="source-map reveal">
+          <div class="source-row">
+            <div class="source-pill"><strong>Źródła europejskie</strong><span>wyszukiwanie bazowe</span></div>
+            <div class="source-pill"><strong>Źródła anglojęzyczne</strong><span>poszerzenie kontekstu</span></div>
+            <div class="source-pill"><strong>Źródła chińskojęzyczne</strong><span>nowe modele</span></div>
+            <div class="source-pill"><strong>Analiza AI</strong><span>struktura i hipotezy</span></div>
+            <div class="source-pill"><strong>Plan sprawdzenia</strong><span>decyzja po stronie diagnosty</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="results">
+      <div class="container">
+        <div class="section-head center reveal">
+          <div class="kicker">Wynik biznesowy</div>
+          <h2>Co otrzymuje właściciel serwisu</h2>
+          <p class="section-subtitle">CarSense AI pomaga zrobić diagnostykę szybciej, czytelniej i z mniejszą zależnością od ręcznego wyszukiwania informacji.</p>
+        </div>
+        <div class="result-grid">
+          <div class="result-card reveal"><strong>01</strong><h3>Więcej diagnostyk dziennie</h3><p>Gdy mniej czasu schodzi na szukanie informacji, serwis może szybciej obsługiwać zgłoszenia.</p></div>
+          <div class="result-card reveal"><strong>02</strong><h3>Mniejsza zależność od jednego specjalisty</h3><p>Historia, raporty i wnioski są zapisywane w systemie, a nie tylko w pamięci diagnosty.</p></div>
+          <div class="result-card reveal"><strong>03</strong><h3>Czytelniejsze wyjaśnienie dla klienta</h3><p>Łatwiej pokazać, jakie błędy znaleziono, jakie przyczyny są prawdopodobne i co trzeba sprawdzić.</p></div>
+          <div class="result-card reveal"><strong>04</strong><h3>Kontrola procesu diagnostyki</h3><p>VIN, statusy, osoby odpowiedzialne, historia i analizy AI znajdują się w jednej bazie.</p></div>
+        </div>
+        <div class="note reveal">Rzeczywisty efekt zależy od procesów serwisu, typów pojazdów, jakości raportów i scenariuszy wdrożenia. CarSense AI nie zastępuje diagnosty i nie gwarantuje 100% dokładności, ale pomaga szybciej zbierać informacje i sprawdzać hipotezy.</div>
+      </div>
+    </section>
+
+    <section id="implementation" class="implementation">
+      <div class="container custom-grid">
+        <div class="custom-card reveal">
+          <div class="kicker">Wdrożenie</div>
+          <h2>Dopasowujemy system do Twojego serwisu, zamiast zmuszać do pracy „tak jak jest”</h2>
+          <p>CarSense AI to robocza nazwa produktu. Podczas wdrożenia interfejs można spersonalizować pod Twój serwis: zmienić nazwę, dopasować strukturę, skonfigurować role pracowników i dodać funkcje potrzebne w Twoich procesach.</p>
+          <ul class="list">
+            <li><span class="check">✓</span>Konfiguracja aplikacji webowej i scenariuszy pracy.</li>
+            <li><span class="check">✓</span>Personalizacja pod markę serwisu.</li>
+            <li><span class="check">✓</span>Zmiana nazwy CarSense AI na nazwę firmy klienta.</li>
+            <li><span class="check">✓</span>Użytkownicy, role, dostępy i panel administratora.</li>
+            <li><span class="check">✓</span>Podłączenie PDF/TXT, źródeł e-mail i potrzebnych kanałów.</li>
+            <li><span class="check">✓</span>Szkolenie pracowników i wsparcie techniczne.</li>
+            <li><span class="check">✓</span>Oficjalna współpraca na podstawie umowy.</li>
+          </ul>
+          <div class="tag-list">
+            <span class="tag">Aplikacja webowa</span>
+            <span class="tag">Twoja marka</span>
+            <span class="tag">Role pracowników</span>
+            <span class="tag">Rozbudowa</span>
+            <span class="tag">Umowa</span>
+          </div>
+        </div>
+        <div class="custom-card highlight reveal">
+          <h3>Termin i koszt</h3>
+          <p>Standardowe uruchomienie jest możliwe w ciągu 7 dni roboczych po uzgodnieniu zadań, jeśli nie jest wymagana złożona dodatkowa rozbudowa.</p>
+          <p>Koszt wdrożenia jest wyliczany indywidualnie po krótkim omówieniu zadań Twojego serwisu.</p>
+          <a class="btn btn-dark" href="https://t.me/STAK_IT_DEV" target="_blank" rel="noopener">Uzyskać konsultację wdrożeniową</a>
+          <p style="margin-top:16px;margin-bottom:0;font-size:14px;color:rgba(255,255,255,.62)">Najpierw prezentacja i omówienie zadań. Potem określimy zakres prac, terminy i koszt.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="not-replace">
+      <div class="container">
+        <div class="section-head center reveal">
+          <div class="kicker">Rola AI</div>
+          <h2>AI nie zastępuje diagnosty. Zdejmuje z niego zbędne ręczne wyszukiwanie</h2>
+          <p class="section-subtitle">Końcowa decyzja pozostaje po stronie specjalisty. CarSense AI pomaga szybciej zebrać dane, zobaczyć prawdopodobne przyczyny i sprawdzić hipotezy.</p>
+        </div>
+        <div class="compare">
+          <div class="compare-card reveal"><h3>Diagnosta</h3><p>Doświadczenie, logika, fizyczna kontrola pojazdu, decyzja końcowa i odpowiedzialność za wniosek.</p></div>
+          <div class="compare-card reveal"><h3>CarSense AI</h3><p>Analiza raportu, struktura błędów, prawdopodobne przyczyny, źródła, czat AI i historia według VIN.</p></div>
+          <div class="compare-card reveal"><h3>Serwis samochodowy</h3><p>Mniej chaosu, więcej kontroli, jednolita baza pojazdów i czytelniejsza praca działu diagnostyki.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="company">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="kicker">Wykonawca</div>
+          <h2>Wdrożenie od Stack IT Development</h2>
+          <p class="section-subtitle"><a href="https://stak-development.com" target="_blank" rel="noopener" style="text-decoration:underline;text-underline-offset:4px">Stack IT Development</a> działa na rynku ponad 5 lat i tworzy rozwiązania IT dla biznesu. CarSense AI jest wdrażany oficjalnie, na podstawie umowy, z konfiguracją, szkoleniem pracowników i wsparciem technicznym.</p>
+        </div>
+        <div class="trust-grid">
+          <div class="trust-card reveal"><h3>5+ lat</h3><p>Doświadczenie na rynku rozwiązań IT dla biznesu.</p></div>
+          <div class="trust-card reveal"><h3>Umowa</h3><p>Oficjalna współpraca i uzgodnienie zakresu wdrożenia.</p></div>
+          <div class="trust-card reveal"><h3>Personalizacja</h3><p>Interfejs, nazwa, role i scenariusze dopasowane do procesów klienta.</p></div>
+          <div class="trust-card reveal"><h3>Wsparcie</h3><p>Szkolenie pracowników i wsparcie techniczne po uruchomieniu.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="video" class="video">
+      <div class="container">
+        <div class="section-head center reveal">
+          <div class="kicker">Prezentacja wideo</div>
+          <h2>Zobacz, jak CarSense AI działa od środka</h2>
+          <p class="section-subtitle">W krótkim filmie pokazujemy ścieżkę od wgrania raportu do analizy AI, karty pojazdu, historii według VIN i pracy z czatem AI.</p>
+        </div>
+        <div class="video-card reveal">
+          <div class="video-placeholder" aria-label="Prezentacja wideo CarSense AI">
+            <video class="site-video" controls preload="metadata" poster="dashboard.jpeg">
+              <source src="video.mp4" type="video/mp4">
+              Twoja przeglądarka nie obsługuje odtwarzania wideo.
+            </video>
+          </div>
+          <div class="video-side">
+            <h3>Co pokazujemy w filmie</h3>
+            <ul class="list">
+              <li><span class="check">✓</span>Wgranie raportu diagnostycznego.</li>
+              <li><span class="check">✓</span>Utworzenie lub aktualizacja karty pojazdu.</li>
+              <li><span class="check">✓</span>Analiza AI błędów i prawdopodobnych przyczyn.</li>
+              <li><span class="check">✓</span>Historia diagnostyk według VIN.</li>
+              <li><span class="check">✓</span>Czat AI dla konkretnego pojazdu.</li>
+            </ul>
+            <div style="height:22px"></div>
+            <a class="btn btn-primary" href="https://t.me/STAK_IT_DEV" target="_blank" rel="noopener">Zamówić prezentację w Telegramie</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq" class="faq">
+      <div class="container">
+        <div class="section-head center reveal">
+          <div class="kicker">FAQ</div>
+          <h2>Pytania, które zwykle zadają właściciele serwisów</h2>
+          <p class="section-subtitle">Krótko o wdrożeniu, formatach raportów, personalizacji i pracy CarSense AI wewnątrz serwisu.</p>
+        </div>
+        <div class="faq-list">
+          <div class="faq-item active reveal"><button class="faq-q"><span>Czy to zastępuje diagnostę?</span><span>+</span></button><div class="faq-a">Nie. CarSense AI nie zastępuje diagnosty i nie podejmuje decyzji końcowej za człowieka. System pomaga szybciej przeanalizować raport, zobaczyć prawdopodobne przyczyny, sprawdzić hipotezy i zapisać historię pojazdu.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Jakie formaty raportów są obsługiwane?</span><span>+</span></button><div class="faq-a">Na obecnym etapie system obsługuje wgrywanie PDF i TXT. Konkretne formaty raportów skanerów diagnostycznych najlepiej sprawdzić podczas prezentacji na Twoich przykładach.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Czy można używać z obecnymi skanerami?</span><span>+</span></button><div class="faq-a">Tak, jeśli skaner pozwala generować raporty w odpowiednim formacie, na przykład PDF lub TXT. Podczas konsultacji można omówić realne raporty i ustalić, jak najlepiej wpisać je w proces.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Czy można spersonalizować interfejs pod naszą markę?</span><span>+</span></button><div class="faq-a">Tak. Można zmienić nazwę produktu na nazwę Twojej firmy, dopasować interfejs i skonfigurować system jako wewnętrzne oprogramowanie serwisu.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Czy można dodać dodatkowe funkcje?</span><span>+</span></button><div class="faq-a">Tak. Dodatkowe funkcje omawiamy podczas konsultacji. To jedna z głównych zalet indywidualnego wdrożenia: system można rozwijać pod realne procesy serwisu.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Gdzie przechowywana jest historia pojazdów?</span><span>+</span></button><div class="faq-a">Historia jest zapisywana w systemie w kartach pojazdów. Główna logika opiera się na VIN: pojazd, raporty, błędy, analizy AI, rekomendacje i historia diagnostyk są zebrane w jednym miejscu.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Czy można podłączyć kilku pracowników?</span><span>+</span></button><div class="faq-a">Tak. System przewiduje użytkowników, role i dostępy. To wygodne dla serwisu, w którym diagnostyką zajmuje się kilku specjalistów albo działa administrator.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Czy działa z chińskimi samochodami?</span><span>+</span></button><div class="faq-a">CarSense AI jest szczególnie przydatny w takich scenariuszach, ponieważ pomaga wyszukiwać i porządkować informacje z anglojęzycznych, chińskojęzycznych oraz technicznych źródeł branżowych. Końcową weryfikację wykonuje diagnosta.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Ile kosztuje wdrożenie?</span><span>+</span></button><div class="faq-a">Koszt jest wyliczany indywidualnie po krótkim omówieniu zadań Twojego serwisu. Cena zależy od potrzebnej personalizacji, scenariuszy pracy, dodatkowych funkcji i integracji.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Jak przebiega wdrożenie?</span><span>+</span></button><div class="faq-a">Najpierw odbywa się prezentacja i omówienie procesów serwisu. Potem uzgadniamy zadania, zakres prac, terminy i koszt. Standardowe uruchomienie jest możliwe w ciągu 7 dni roboczych po uzgodnieniu zadań, jeśli nie jest wymagana złożona dodatkowa rozbudowa.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Czy można najpierw zobaczyć prezentację?</span><span>+</span></button><div class="faq-a">Tak. To podstawowy pierwszy krok. Możesz zobaczyć interfejs, scenariusze pracy, zadać pytania i zrozumieć, jak system może wyglądać właśnie w Twoim serwisie.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Czy to tylko bot Telegram?</span><span>+</span></button><div class="faq-a">Nie. Podstawowy format CarSense AI to aplikacja webowa dla serwisu samochodowego. Telegram lub inne kanały można podłączyć dodatkowo, jeśli pasują do Twoich procesów.</div></div>
+          <div class="faq-item reveal"><button class="faq-q"><span>Co jeśli AI się pomyli?</span><span>+</span></button><div class="faq-a">AI nie podejmuje decyzji końcowej. Pomaga zebrać informacje, pokazać prawdopodobne przyczyny i kierunki sprawdzenia. Diagnosta weryfikuje hipotezy na realnym pojeździe i podejmuje końcową decyzję.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="final-cta">
+      <div class="container final-box">
+        <div class="reveal">
+          <div class="kicker">Następny krok</div>
+          <h2>Pokażemy, jak CarSense AI może działać właśnie w Twoim serwisie</h2>
+          <p class="section-subtitle">Omówimy Twoje procesy, pokażemy interfejs i wyjaśnimy, jakie funkcje można wdrożyć pod zadania Twojego serwisu.</p>
+          <div style="height:26px"></div>
+          <ul class="list" style="margin-bottom:26px">
+            <li><span class="check">✓</span>Prezentacja interfejsu i wideo.</li>
+            <li><span class="check">✓</span>Omówienie zadań Twojego serwisu.</li>
+            <li><span class="check">✓</span>Omówienie personalizacji pod markę.</li>
+            <li><span class="check">✓</span>Ocena dodatkowych funkcji i terminów.</li>
+          </ul>
+          <div class="hero-cta">
+            <a class="btn btn-primary" href="https://t.me/STAK_IT_DEV" target="_blank" rel="noopener">Zamówić prezentację w Telegramie</a>
+            <a class="btn btn-dark" href="https://stak-development.com" target="_blank" rel="noopener">Strona Stack IT Development</a>
+          </div>
+          <p class="micro">Najpierw krótka konsultacja i prezentacja. Następnie wyliczymy koszt wdrożenia pod zadania Twojego serwisu.</p>
+        </div>
+        <div class="final-screens reveal">
+          <img src="dashboard.jpeg" alt="Panel główny CarSense AI">
+          <img src="errors-chat.jpeg" alt="Karta pojazdu z czatem AI CarSense AI">
+          <img src="admin.jpeg" alt="Panel administratora CarSense AI">
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-row">
+      <div>CarSense AI — indywidualna integracja AI dla serwisów samochodowych.</div>
+      <div><a href="https://t.me/STAK_IT_DEV" target="_blank" rel="noopener">@STAK_IT_DEV</a> · <a href="https://stak-development.com" target="_blank" rel="noopener">Stack IT Development</a></div>
+    </div>
+  </footer>
+</div>
+
+
+<div class="image-lightbox" id="imageLightbox" aria-hidden="true">
+  <button class="image-lightbox__close" type="button" aria-label="Zamknąć obraz">×</button>
+  <img class="image-lightbox__img" src="" alt="">
+</div>
+
+<script>
+  const faqItems = document.querySelectorAll('.faq-item');
+  faqItems.forEach(item => {
+    const button = item.querySelector('.faq-q');
+    if (button) {
+      button.addEventListener('click', () => {
+        item.classList.toggle('active');
+      });
+    }
+  });
+
+  const revealEls = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  revealEls.forEach(el => observer.observe(el));
+
+  function stopSiteMedia(exceptMedia) {
+    const mediaItems = document.querySelectorAll('video, audio');
+
+    mediaItems.forEach(media => {
+      if (exceptMedia && media === exceptMedia) return;
+
+      try {
+        media.pause();
+        media.currentTime = 0;
+        media.muted = true;
+        media.removeAttribute('autoplay');
+      } catch (e) {}
+    });
+
+    const iframes = document.querySelectorAll('iframe');
+
+    iframes.forEach(iframe => {
+      try {
+        const src = iframe.getAttribute('src');
+        if (src) {
+          iframe.setAttribute('src', src);
+        }
+      } catch (e) {}
+    });
+  }
+
+  document.querySelectorAll('.site-video').forEach(video => {
+    video.addEventListener('play', () => {
+      stopSiteMedia(video);
+      video.muted = false;
+    });
+
+    video.addEventListener('click', () => {
+      stopSiteMedia(video);
+    });
+  });
+
+  document.querySelectorAll('.js-stop-site-media').forEach(button => {
+    button.addEventListener('click', () => {
+      stopSiteMedia();
+    });
+  });
+
+  const imageLightbox = document.getElementById('imageLightbox');
+  const imageLightboxImg = imageLightbox ? imageLightbox.querySelector('.image-lightbox__img') : null;
+  const imageLightboxClose = imageLightbox ? imageLightbox.querySelector('.image-lightbox__close') : null;
+
+  function openImageLightbox(img) {
+    if (!imageLightbox || !imageLightboxImg || !img) return;
+
+    stopSiteMedia();
+    imageLightboxImg.src = img.currentSrc || img.src;
+    imageLightboxImg.alt = img.alt || '';
+    imageLightbox.classList.add('active');
+    imageLightbox.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeImageLightbox() {
+    if (!imageLightbox || !imageLightboxImg) return;
+
+    imageLightbox.classList.remove('active');
+    imageLightbox.setAttribute('aria-hidden', 'true');
+    imageLightboxImg.src = '';
+    document.body.style.overflow = '';
+  }
+
+  document.querySelectorAll('img').forEach(img => {
+    img.classList.add('lightbox-enabled');
+    img.setAttribute('tabindex', '0');
+
+    img.addEventListener('click', () => {
+      openImageLightbox(img);
+    });
+
+    img.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openImageLightbox(img);
+      }
+    });
+  });
+
+  if (imageLightbox) {
+    imageLightbox.addEventListener('click', event => {
+      if (event.target === imageLightbox) {
+        closeImageLightbox();
+      }
+    });
+  }
+
+  if (imageLightboxClose) {
+    imageLightboxClose.addEventListener('click', closeImageLightbox);
+  }
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      closeImageLightbox();
+    }
+  });
+</script>
+</body>
+</html>
